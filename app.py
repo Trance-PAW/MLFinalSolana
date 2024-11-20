@@ -31,12 +31,14 @@ else:
 st.title("Predicción de Precios de Solana con LSTM")
 st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
 
-# Descargar el dataset desde Google Drive
-def download_dataset():
-    file_id = "https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing"  # Reemplaza con el ID de tu archivo
-    output_file = "solana_historical_data.csv"
-    gdd.download_file_from_google_drive(file_id=file_id, dest_path=output_file, unzip=False)
-    return output_file
+
+# Descargar un archivo desde Google Drive
+gdd.download_file_from_google_drive(
+    file_id='https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing',
+    dest_path='./data/solana_historical_data.csv',
+    unzip=False
+)
+
 
 # Descargar y cargar el dataset
 try:
