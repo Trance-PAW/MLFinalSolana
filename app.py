@@ -1,8 +1,7 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.models import load_model
 import tensorflow as tf
 import streamlit as st
 
@@ -27,19 +26,19 @@ st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana ba
 
 # Cargar modelo entrenado
 try:
-    model = load_model("best_lstm_model.h5")
+    model = load_model("lstm_model.h5", compile=False)
     st.write("Modelo cargado exitosamente.")
 except Exception as e:
     st.error(f"Error al cargar el modelo: {e}")
     st.stop()
 
-# Normalizador (asegúrate de que este sea el mismo que usaste durante el entrenamiento)
+# Normalizador
 features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
 scaler = MinMaxScaler()
-scaler.min_ = np.array([0, 0, 0, 0, 0])  # Reemplazar con los valores del ajuste original
-scaler.scale_ = np.array([1, 1, 1, 1, 1])  # Reemplazar con los valores del ajuste original
-scaler.data_min_ = np.array([0, 0, 0, 0, 0])  # Reemplazar con los valores originales
-scaler.data_max_ = np.array([1, 1, 1, 1, 1])  # Reemplazar con los valores originales
+
+# Configura los parámetros del escalador como se usaron en el entrenamiento.
+scaler.min_ = np.array([0, 0, 0, 0, 0])  # Valores mínimos ajustados
+scaler.scale_ = np.array([1, 1, 1, 1, 1])  # Escalas ajustadas
 
 # Entrada del usuario
 st.header("Entrada Manual de Indicadores")
@@ -78,3 +77,4 @@ if st.button("Predecir"):
             st.write(f"Hora {i}: {price:.2f} USD")
     except Exception as e:
         st.error(f"Error durante la predicción: {e}")
+
