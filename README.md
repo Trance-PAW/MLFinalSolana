@@ -11,7 +11,7 @@ Proyecto Final MIC - Machine Learning
 
 ## Predicción del Precio de Solana con LSTM y Streamlit
 
-Este proyecto utiliza un modelo de **Support Vector Machine (SVM)** para predecir si el precio de **Solana** subirá o bajará en las próximas 5 horas. El modelo se entrena utilizando indicadores técnicos como **RSI**, **MACD** y **ATR**. Además, se utiliza una aplicación de **Streamlit** para proporcionar una interfaz simple donde los usuarios pueden ingresar valores y obtener predicciones del modelo.
+Este proyecto utiliza un modelo de **ong Short-Term Memory (LSTM)** para predecir si el precio de **Solana** subirá o bajará en las próximas 5 horas. El modelo se entrena utilizando indicadores técnicos como **RSI**, **MACD** y **ATR**. Además, se utiliza una aplicación de **Streamlit** para proporcionar una interfaz simple donde los usuarios pueden ingresar valores y obtener predicciones del modelo.
 
 ## Contenido del Proyecto
 
