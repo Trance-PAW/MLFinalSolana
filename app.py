@@ -11,7 +11,6 @@ import tensorflow as tf
 import seaborn as sns
 import streamlit as st
 import gdown
-import os
 
 # Configuración para TensorFlow
 tf.config.threading.set_intra_op_parallelism_threads(0)
@@ -33,33 +32,23 @@ st.title("Predicción de Precios de Solana con LSTM")
 st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
 
 def download_dataset():
-    file_id = "TU_FILE_ID"  # Reemplaza con el ID real del archivo
+    file_id = "https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing"  # Reemplaza con el ID real del archivo
     output_path = "solana_historical_data.csv"
-    gdown.download(f"https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing", output_path, quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id={file_id}", output_path, quiet=False)
     return output_path
 
 
 
-# Cargar el CSV con tolerancia a errores
+# Descargar y cargar el dataset
 try:
-    solana_data = pd.read_csv(data_path, on_bad_lines='skip')
-    print("Archivo cargado correctamente.")
+    st.write("Descargando el dataset...")
+    data_path = download_dataset()
+    solana_data = pd.read_csv(data_path, sep=None, engine='python')  # Detectar automáticamente el delimitador
+    st.write("Dataset cargado correctamente desde Google Drive.")
 except Exception as e:
-    print(f"Error al cargar el archivo: {e}")
+    st.error(f"Error al cargar el dataset: {e}")
+    st.stop()
 
-# Revisar si todas las filas tienen la misma cantidad de columnas
-with open(data_path, 'r') as file:
-    lines = file.readlines()
-
-# Detectar problemas de longitud
-column_counts = [len(line.split(',')) for line in lines]
-if len(set(column_counts)) > 1:
-    print("Se encontraron líneas con un número inconsistente de columnas:")
-    for i, count in enumerate(column_counts):
-        if count != column_counts[0]:
-            print(f"Línea {i + 1} tiene {count} columnas.")
-            
-            
 # Verificar estructura del dataset
 st.write("Primeras filas del dataset:")
 st.write(solana_data.head())
