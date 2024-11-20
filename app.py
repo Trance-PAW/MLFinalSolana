@@ -10,7 +10,6 @@ from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 import seaborn as sns
 import streamlit as st
-import gdown
 
 # Configuración para TensorFlow
 tf.config.threading.set_intra_op_parallelism_threads(0)
@@ -21,49 +20,25 @@ if physical_devices:
     try:
         for device in physical_devices:
             tf.config.experimental.set_memory_growth(device, True)
-        print("Memoria del GPU configurada para crecimiento gradual.")
+        st.write("Memoria del GPU configurada para crecimiento gradual.")
     except Exception as e:
-        print(f"Ocurrió un error al configurar el GPU: {e}")
+        st.error(f"Error al configurar el GPU: {e}")
 else:
-    print("No se encontró un dispositivo GPU. El entrenamiento se realizará en la CPU.")
+    st.write("No se encontró un dispositivo GPU. El entrenamiento se realizará en la CPU.")
 
 # Streamlit UI
 st.title("Predicción de Precios de Solana con LSTM")
 st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
 
-# Ruta directa al archivo
+# Cargar el dataset
 data_path = "solana_historical_data.csv"
-
-# Leer el archivo CSV
 try:
     solana_data = pd.read_csv(data_path)
     st.write("Dataset cargado correctamente desde el repositorio.")
-except Exception as e:
-    st.error(f"Error al cargar el dataset: {e}")    
-    
-    
-# Leer el archivo
-try:
-    solana_data = pd.read_csv(data_path)
-    st.write("Dataset cargado correctamente desde el repositorio.")
-except Exception as e:
-    st.error(f"Error al cargar el dataset: {e}")
-
-# Descargar y cargar el dataset
-try:
-    st.write("Descargando el dataset...")
-    data_path = download_dataset()
-    solana_data = pd.read_csv(data_path, sep=None, engine='python')  # Detectar automáticamente el delimitador
-    st.write("Dataset cargado correctamente desde Google Drive.")
+    st.write(solana_data.head())  # Muestra las primeras filas del dataset
 except Exception as e:
     st.error(f"Error al cargar el dataset: {e}")
     st.stop()
-
-# Verificar estructura del dataset
-st.write("Primeras filas del dataset:")
-st.write(solana_data.head())
-st.write("Resumen del dataset:")
-st.write(solana_data.info())
 
 # Procesar datos
 try:
@@ -86,7 +61,7 @@ try:
         rs = gain / loss
         return 100 - (100 / (1 + rs))
 
-    filtered_data['RSI'] = compute_rsi(filtered_data['close'], window=rsi_window)
+    filtered_data['RSI'] = compute_rsi(filtered_data['close'], rsi_window)
     ema12 = filtered_data['close'].ewm(span=12, adjust=False).mean()
     ema26 = filtered_data['close'].ewm(span=26, adjust=False).mean()
     filtered_data['MACD'] = ema12 - ema26
@@ -96,6 +71,7 @@ try:
                                                 abs(filtered_data['low'] - filtered_data['close'].shift(1))))
     filtered_data['ATR'] = filtered_data['TR'].rolling(window=rsi_window).mean()
     filtered_data.dropna(inplace=True)
+    st.write("Indicadores técnicos calculados correctamente.")
 except Exception as e:
     st.error(f"Error al calcular los indicadores técnicos: {e}")
     st.stop()
@@ -105,6 +81,7 @@ try:
     features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
     scaler = MinMaxScaler()
     scaled_features = scaler.fit_transform(filtered_data[features])
+    st.write("Datos normalizados correctamente.")
 except Exception as e:
     st.error(f"Error al normalizar los datos: {e}")
     st.stop()
@@ -126,6 +103,7 @@ try:
     train_size = int(len(X) * split_ratio)
     X_train, X_test = X[:train_size], X[train_size:]
     y_train, y_test = y[:train_size], y[train_size:]
+    st.write("Secuencias creadas correctamente.")
 except Exception as e:
     st.error(f"Error al crear las secuencias: {e}")
     st.stop()
