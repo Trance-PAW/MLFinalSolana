@@ -2,13 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
-import seaborn as sns
 import streamlit as st
 
 # Configuración para TensorFlow
@@ -28,152 +23,58 @@ else:
 
 # Streamlit UI
 st.title("Predicción de Precios de Solana con LSTM")
-st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
+st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos o introducidos por el usuario.")
 
-# Cargar el dataset
-data_path = "solana_historical_data.csv"
+# Cargar modelo entrenado
 try:
-    solana_data = pd.read_csv(data_path)
-    st.write("Dataset cargado correctamente desde el repositorio.")
-    st.write(solana_data.head())  # Muestra las primeras filas del dataset
+    model = load_model("lstm_model.h5")
+    st.write("Modelo cargado exitosamente.")
 except Exception as e:
-    st.error(f"Error al cargar el dataset: {e}")
+    st.error(f"Error al cargar el modelo: {e}")
     st.stop()
 
-# Procesar datos
-try:
-    solana_data['timestamp'] = pd.to_datetime(solana_data['timestamp'])
-    solana_data.sort_values('timestamp', inplace=True)
-    filtered_data = solana_data[solana_data['timestamp'] >= solana_data['timestamp'].max() - pd.DateOffset(months=2)]
-    filtered_data.fillna(method='ffill', inplace=True)
-    filtered_data.fillna(method='bfill', inplace=True)
-except Exception as e:
-    st.error(f"Error al procesar los datos: {e}")
-    st.stop()
+# Normalizador (asegúrate de que este sea el mismo que usaste durante el entrenamiento)
+features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
+scaler = MinMaxScaler()
+scaler.min_ = np.array([0, 0, 0, 0, 0])  # Reemplazar con los valores del ajuste original
+scaler.scale_ = np.array([1, 1, 1, 1, 1])  # Reemplazar con los valores del ajuste original
+scaler.data_min_ = np.array([0, 0, 0, 0, 0])  # Reemplazar con los valores originales
+scaler.data_max_ = np.array([1, 1, 1, 1, 1])  # Reemplazar con los valores originales
 
-# Cálculo de indicadores técnicos
-try:
-    rsi_window = 14
-    def compute_rsi(data, window):
-        delta = data.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-        rs = gain / loss
-        return 100 - (100 / (1 + rs))
+# Entrada del usuario
+st.header("Entrada Manual de Indicadores")
+price = st.number_input("Precio actual de Solana (USD)", min_value=0.0, value=200.0, step=0.01)
+rsi = st.number_input("RSI", min_value=0.0, max_value=100.0, value=50.0, step=0.1)
+macd = st.number_input("MACD", min_value=-10.0, max_value=10.0, value=0.0, step=0.1)
+macd_signal = st.number_input("MACD Signal", min_value=-10.0, max_value=10.0, value=0.0, step=0.1)
+atr = st.number_input("ATR", min_value=0.0, value=1.0, step=0.1)
 
-    filtered_data['RSI'] = compute_rsi(filtered_data['close'], rsi_window)
-    ema12 = filtered_data['close'].ewm(span=12, adjust=False).mean()
-    ema26 = filtered_data['close'].ewm(span=26, adjust=False).mean()
-    filtered_data['MACD'] = ema12 - ema26
-    filtered_data['MACD_signal'] = filtered_data['MACD'].ewm(span=9, adjust=False).mean()
-    filtered_data['TR'] = np.maximum(filtered_data['high'] - filtered_data['low'], 
-                                     np.maximum(abs(filtered_data['high'] - filtered_data['close'].shift(1)),
-                                                abs(filtered_data['low'] - filtered_data['close'].shift(1))))
-    filtered_data['ATR'] = filtered_data['TR'].rolling(window=rsi_window).mean()
-    filtered_data.dropna(inplace=True)
-    st.write("Indicadores técnicos calculados correctamente.")
-except Exception as e:
-    st.error(f"Error al calcular los indicadores técnicos: {e}")
-    st.stop()
+# Botón para predecir
+if st.button("Predecir"):
+    try:
+        # Normalizar los valores introducidos
+        user_input = np.array([[price, rsi, macd, macd_signal, atr]])
+        normalized_input = scaler.transform(user_input)
 
-# Normalización
-try:
-    features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
-    scaler = MinMaxScaler()
-    scaled_features = scaler.fit_transform(filtered_data[features])
-    st.write("Datos normalizados correctamente.")
-except Exception as e:
-    st.error(f"Error al normalizar los datos: {e}")
-    st.stop()
+        # Crear la secuencia de entrada
+        n_steps_in = 720  # 15 días de datos (30 minutos cada paso)
+        sequence = np.tile(normalized_input, (n_steps_in, 1))  # Replicar los valores para completar la secuencia
+        sequence = sequence.reshape(1, n_steps_in, len(features))  # Darle forma para que sea compatible con LSTM
 
-# Crear secuencias para el LSTM
-try:
-    def create_sequences(data, n_steps_in, n_steps_out):
-        X, y = [], []
-        for i in range(len(data) - n_steps_in - n_steps_out + 1):
-            X.append(data[i:i + n_steps_in])
-            y.append(data[i + n_steps_in:i + n_steps_in + n_steps_out, 0])  # Columna 'close'
-        return np.array(X), np.array(y)
+        # Hacer la predicción
+        prediction = model.predict(sequence)
 
-    n_steps_in = 720  # 15 días de datos (30 minutos cada paso)
-    n_steps_out = 6  # 3 horas
-    X, y = create_sequences(scaled_features, n_steps_in, n_steps_out)
+        # Denormalizar la predicción
+        def denormalize(scaled_data, scaler, feature_index):
+            dummy = np.zeros((scaled_data.shape[0], scaler.n_features_in_))
+            dummy[:, feature_index] = scaled_data
+            return scaler.inverse_transform(dummy)[:, feature_index]
 
-    split_ratio = 0.8
-    train_size = int(len(X) * split_ratio)
-    X_train, X_test = X[:train_size], X[train_size:]
-    y_train, y_test = y[:train_size], y[train_size:]
-    st.write("Secuencias creadas correctamente.")
-except Exception as e:
-    st.error(f"Error al crear las secuencias: {e}")
-    st.stop()
+        future_prices = denormalize(prediction[0], scaler, features.index('close'))
 
-# Construcción del modelo LSTM
-try:
-    model = Sequential([
-        LSTM(200, activation='tanh', return_sequences=True, input_shape=(n_steps_in, len(features))),
-        Dropout(0.3),
-        LSTM(100, activation='tanh'),
-        Dropout(0.3),
-        Dense(50, activation='relu'),
-        Dense(n_steps_out)
-    ])
-
-    optimizer = Adam(learning_rate=0.001)
-    model.compile(optimizer=optimizer, loss='mse')
-    st.write("Modelo LSTM creado.")
-except Exception as e:
-    st.error(f"Error al construir el modelo LSTM: {e}")
-    st.stop()
-
-# Entrenamiento
-try:
-    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-    history = model.fit(X_train, y_train, epochs=50, batch_size=64, validation_data=(X_test, y_test), callbacks=[early_stopping])
-    st.write("Entrenamiento completado.")
-except Exception as e:
-    st.error(f"Error durante el entrenamiento: {e}")
-    st.stop()
-
-# Guardar el modelo
-try:
-    model.save("lstm_model.h5")
-    st.write("Modelo LSTM guardado como 'lstm_model.h5'.")
-except Exception as e:
-    st.error(f"Error al guardar el modelo: {e}")
-    st.stop()
-
-# Predicciones y evaluación
-try:
-    predictions = model.predict(X_test)
-    def denormalize(scaled_data, scaler, feature_index):
-        dummy = np.zeros((scaled_data.shape[0], scaler.n_features_in_))
-        dummy[:, feature_index] = scaled_data
-        return scaler.inverse_transform(dummy)[:, feature_index]
-
-    predicted_close = denormalize(predictions.flatten(), scaler, features.index('close'))
-    real_close = denormalize(y_test.flatten(), scaler, features.index('close'))
-
-    mae = mean_absolute_error(real_close, predicted_close)
-    rmse = np.sqrt(mean_squared_error(real_close, predicted_close))
-    r2 = r2_score(real_close, predicted_close)
-
-    st.write(f"MAE: {mae}")
-    st.write(f"RMSE: {rmse}")
-    st.write(f"R² Score: {r2}")
-except Exception as e:
-    st.error(f"Error durante las predicciones o evaluación: {e}")
-    st.stop()
-
-# Gráficos
-try:
-    plt.figure(figsize=(12, 6))
-    plt.plot(real_close[:100], label='Real', color='blue')
-    plt.plot(predicted_close[:100], label='Predicción', color='orange')
-    plt.title('Predicción vs Valores Reales (Primeras 100 muestras)')
-    plt.xlabel('Índice')
-    plt.ylabel('Precio')
-    plt.legend()
-    st.pyplot(plt)
-except Exception as e:
-    st.error(f"Error al generar los gráficos: {e}")
+        # Mostrar los resultados
+        st.subheader("Predicciones para las próximas horas")
+        for i, price in enumerate(future_prices, start=1):
+            st.write(f"Hora {i}: {price:.2f} USD")
+    except Exception as e:
+        st.error(f"Error durante la predicción: {e}")
