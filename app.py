@@ -39,16 +39,26 @@ def download_dataset():
 
 
 
-# Descargar y cargar el dataset
+# Cargar el CSV con tolerancia a errores
 try:
-    st.write("Descargando el dataset...")
-    data_path = download_dataset()
-    solana_data = pd.read_csv(data_path, sep=None, engine='python')  # Detectar automáticamente el delimitador
-    st.write("Dataset cargado correctamente desde Google Drive.")
+    solana_data = pd.read_csv(data_path, on_bad_lines='skip')
+    print("Archivo cargado correctamente.")
 except Exception as e:
-    st.error(f"Error al cargar el dataset: {e}")
-    st.stop()
+    print(f"Error al cargar el archivo: {e}")
 
+# Revisar si todas las filas tienen la misma cantidad de columnas
+with open(data_path, 'r') as file:
+    lines = file.readlines()
+
+# Detectar problemas de longitud
+column_counts = [len(line.split(',')) for line in lines]
+if len(set(column_counts)) > 1:
+    print("Se encontraron líneas con un número inconsistente de columnas:")
+    for i, count in enumerate(column_counts):
+        if count != column_counts[0]:
+            print(f"Línea {i + 1} tiene {count} columnas.")
+            
+            
 # Verificar estructura del dataset
 st.write("Primeras filas del dataset:")
 st.write(solana_data.head())
