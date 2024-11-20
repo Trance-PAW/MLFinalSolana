@@ -47,3 +47,5 @@ tzdata==2024.1
 urllib3==2.2.2
 watchdog==4.0.2
 scikit-learn
+tensorflow>=2.6.0
+
