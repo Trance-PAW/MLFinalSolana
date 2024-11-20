@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Nov 20 15:14:00 2024
-
-@author: trancepaw
-"""
-import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,91 +8,119 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
-import os
-import requests
+import seaborn as sns
+import streamlit as st
+from google_drive_downloader import GoogleDriveDownloader as gdd
 
-# Configuración para el uso del GPU y optimización de memoria
+# Configuración para TensorFlow
 tf.config.threading.set_intra_op_parallelism_threads(0)
 tf.config.threading.set_inter_op_parallelism_threads(0)
+
 physical_devices = tf.config.list_physical_devices('GPU')
 if physical_devices:
-    for device in physical_devices:
-        tf.config.experimental.set_memory_growth(device, True)
+    try:
+        for device in physical_devices:
+            tf.config.experimental.set_memory_growth(device, True)
+        print("Memoria del GPU configurada para crecimiento gradual.")
+    except Exception as e:
+        print(f"Ocurrió un error al configurar el GPU: {e}")
+else:
+    print("No se encontró un dispositivo GPU. El entrenamiento se realizará en la CPU.")
 
-# Título de la aplicación
-st.title("Predicción del Precio de Solana con LSTM")
+# Streamlit UI
+st.title("Predicción de Precios de Solana con LSTM")
+st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
 
-
-
-# Descargar el archivo desde Google Drive si no existe
+# Descargar el dataset desde Google Drive
 def download_dataset():
-    dataset_url = "https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing"  # Reemplaza con el ID del archivo de Google Drive
-    local_filename = "solana_historical_data.csv"
-    if not os.path.exists(local_filename):
-        with requests.get(dataset_url, stream=True) as r:
-            with open(local_filename, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-    return local_filename
+    file_id = "https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing"  # Reemplaza con el ID de tu archivo
+    output_file = "solana_historical_data.csv"
+    gdd.download_file_from_google_drive(file_id=file_id, dest_path=output_file, unzip=False)
+    return output_file
 
-# Cargar el dataset
-data_path = download_dataset()
-solana_data = pd.read_csv(data_path)
-st.write("Dataset cargado correctamente desde Google Drive.")
+# Descargar y cargar el dataset
+try:
+    st.write("Descargando el dataset...")
+    data_path = download_dataset()
+    solana_data = pd.read_csv(data_path, sep=None, engine='python')  # Detectar automáticamente el delimitador
+    st.write("Dataset cargado correctamente desde Google Drive.")
+except Exception as e:
+    st.error(f"Error al cargar el dataset: {e}")
+    st.stop()
+
+# Verificar estructura del dataset
+st.write("Primeras filas del dataset:")
+st.write(solana_data.head())
+st.write("Resumen del dataset:")
+st.write(solana_data.info())
 
 # Procesar datos
-solana_data['timestamp'] = pd.to_datetime(solana_data['timestamp'])
-solana_data.sort_values('timestamp', inplace=True)
-filtered_data = solana_data[solana_data['timestamp'] >= solana_data['timestamp'].max() - pd.DateOffset(months=2)]
-filtered_data.fillna(method='ffill', inplace=True)
-filtered_data.fillna(method='bfill', inplace=True)
+try:
+    solana_data['timestamp'] = pd.to_datetime(solana_data['timestamp'])
+    solana_data.sort_values('timestamp', inplace=True)
+    filtered_data = solana_data[solana_data['timestamp'] >= solana_data['timestamp'].max() - pd.DateOffset(months=2)]
+    filtered_data.fillna(method='ffill', inplace=True)
+    filtered_data.fillna(method='bfill', inplace=True)
+except Exception as e:
+    st.error(f"Error al procesar los datos: {e}")
+    st.stop()
 
 # Cálculo de indicadores técnicos
-def compute_rsi(data, window=14):
-    delta = data.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
+try:
+    rsi_window = 14
+    def compute_rsi(data, window):
+        delta = data.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs))
 
-filtered_data['RSI'] = compute_rsi(filtered_data['close'])
-ema12 = filtered_data['close'].ewm(span=12, adjust=False).mean()
-ema26 = filtered_data['close'].ewm(span=26, adjust=False).mean()
-filtered_data['MACD'] = ema12 - ema26
-filtered_data['MACD_signal'] = filtered_data['MACD'].ewm(span=9, adjust=False).mean()
-filtered_data['TR'] = np.maximum(filtered_data['high'] - filtered_data['low'], 
-                                 np.maximum(abs(filtered_data['high'] - filtered_data['close'].shift(1)),
-                                            abs(filtered_data['low'] - filtered_data['close'].shift(1))))
-filtered_data['ATR'] = filtered_data['TR'].rolling(window=14).mean()
-filtered_data.dropna(inplace=True)
+    filtered_data['RSI'] = compute_rsi(filtered_data['close'], window=rsi_window)
+    ema12 = filtered_data['close'].ewm(span=12, adjust=False).mean()
+    ema26 = filtered_data['close'].ewm(span=26, adjust=False).mean()
+    filtered_data['MACD'] = ema12 - ema26
+    filtered_data['MACD_signal'] = filtered_data['MACD'].ewm(span=9, adjust=False).mean()
+    filtered_data['TR'] = np.maximum(filtered_data['high'] - filtered_data['low'], 
+                                     np.maximum(abs(filtered_data['high'] - filtered_data['close'].shift(1)),
+                                                abs(filtered_data['low'] - filtered_data['close'].shift(1))))
+    filtered_data['ATR'] = filtered_data['TR'].rolling(window=rsi_window).mean()
+    filtered_data.dropna(inplace=True)
+except Exception as e:
+    st.error(f"Error al calcular los indicadores técnicos: {e}")
+    st.stop()
 
 # Normalización
-features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
-scaler = MinMaxScaler()
-scaled_features = scaler.fit_transform(filtered_data[features])
+try:
+    features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
+    scaler = MinMaxScaler()
+    scaled_features = scaler.fit_transform(filtered_data[features])
+except Exception as e:
+    st.error(f"Error al normalizar los datos: {e}")
+    st.stop()
 
-# Crear secuencias
-def create_sequences(data, n_steps_in, n_steps_out):
-    X, y = [], []
-    for i in range(len(data) - n_steps_in - n_steps_out + 1):
-        X.append(data[i:i + n_steps_in])
-        y.append(data[i + n_steps_in:i + n_steps_in + n_steps_out, 0])  # Columna 'close'
-    return np.array(X), np.array(y)
+# Crear secuencias para el LSTM
+try:
+    def create_sequences(data, n_steps_in, n_steps_out):
+        X, y = [], []
+        for i in range(len(data) - n_steps_in - n_steps_out + 1):
+            X.append(data[i:i + n_steps_in])
+            y.append(data[i + n_steps_in:i + n_steps_in + n_steps_out, 0])  # Columna 'close'
+        return np.array(X), np.array(y)
 
-n_steps_in = 720  # 15 días de datos
-n_steps_out = 3   # Predicción de 3 horas
-X, y = create_sequences(scaled_features, n_steps_in, n_steps_out)
+    n_steps_in = 720  # 15 días de datos (30 minutos cada paso)
+    n_steps_out = 6  # 3 horas
+    X, y = create_sequences(scaled_features, n_steps_in, n_steps_out)
 
-# Dividir en conjuntos de entrenamiento y prueba
-split_ratio = 0.8
-train_size = int(len(X) * split_ratio)
-X_train, X_test = X[:train_size], X[train_size:]
-y_train, y_test = y[:train_size], y[train_size:]
+    split_ratio = 0.8
+    train_size = int(len(X) * split_ratio)
+    X_train, X_test = X[:train_size], X[train_size:]
+    y_train, y_test = y[:train_size], y[train_size:]
+except Exception as e:
+    st.error(f"Error al crear las secuencias: {e}")
+    st.stop()
 
-# Crear o cargar modelo
-model_path = "lstm_model_solana.h5"
-if not os.path.exists(model_path):
-    st.write("Entrenando un nuevo modelo LSTM...")
+# Construcción del modelo LSTM
+try:
     model = Sequential([
         LSTM(200, activation='tanh', return_sequences=True, input_shape=(n_steps_in, len(features))),
         Dropout(0.3),
@@ -109,51 +129,62 @@ if not os.path.exists(model_path):
         Dense(50, activation='relu'),
         Dense(n_steps_out)
     ])
-    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+
+    optimizer = Adam(learning_rate=0.001)
+    model.compile(optimizer=optimizer, loss='mse')
+    st.write("Modelo LSTM creado.")
+except Exception as e:
+    st.error(f"Error al construir el modelo LSTM: {e}")
+    st.stop()
+
+# Entrenamiento
+try:
     early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
     history = model.fit(X_train, y_train, epochs=50, batch_size=64, validation_data=(X_test, y_test), callbacks=[early_stopping])
-    model.save(model_path)
-else:
-    st.write("Cargando modelo preentrenado...")
-    model = load_model(model_path)
+    st.write("Entrenamiento completado.")
+except Exception as e:
+    st.error(f"Error durante el entrenamiento: {e}")
+    st.stop()
 
-# Predicciones
-predictions = model.predict(X_test)
-def denormalize(scaled_data, scaler, feature_index):
-    dummy = np.zeros((scaled_data.shape[0], scaler.n_features_in_))
-    dummy[:, feature_index] = scaled_data
-    return scaler.inverse_transform(dummy)[:, feature_index]
+# Guardar el modelo
+try:
+    model.save("lstm_model.h5")
+    st.write("Modelo LSTM guardado como 'lstm_model.h5'.")
+except Exception as e:
+    st.error(f"Error al guardar el modelo: {e}")
+    st.stop()
 
-predicted_close = denormalize(predictions.flatten(), scaler, features.index('close'))
-real_close = denormalize(y_test.flatten(), scaler, features.index('close'))
+# Predicciones y evaluación
+try:
+    predictions = model.predict(X_test)
+    def denormalize(scaled_data, scaler, feature_index):
+        dummy = np.zeros((scaled_data.shape[0], scaler.n_features_in_))
+        dummy[:, feature_index] = scaled_data
+        return scaler.inverse_transform(dummy)[:, feature_index]
 
-# Calcular métricas
-mae = mean_absolute_error(real_close, predicted_close)
-rmse = np.sqrt(mean_squared_error(real_close, predicted_close))
-r2 = r2_score(real_close, predicted_close)
+    predicted_close = denormalize(predictions.flatten(), scaler, features.index('close'))
+    real_close = denormalize(y_test.flatten(), scaler, features.index('close'))
 
-st.write(f"### Métricas del modelo LSTM:")
-st.write(f"- **MAE**: {mae:.2f}")
-st.write(f"- **RMSE**: {rmse:.2f}")
-st.write(f"- **R² Score**: {r2:.2f}")
+    mae = mean_absolute_error(real_close, predicted_close)
+    rmse = np.sqrt(mean_squared_error(real_close, predicted_close))
+    r2 = r2_score(real_close, predicted_close)
 
-# Gráficas
-st.write("### Predicción vs Valores Reales")
-fig, ax = plt.subplots(figsize=(12, 6))
-ax.plot(real_close[:100], label='Real', color='blue')
-ax.plot(predicted_close[:100], label='Predicción', color='orange')
-ax.set_title('Predicción vs Valores Reales (Primeras 100 muestras)')
-ax.set_xlabel('Índice')
-ax.set_ylabel('Precio')
-ax.legend()
-st.pyplot(fig)
+    st.write(f"MAE: {mae}")
+    st.write(f"RMSE: {rmse}")
+    st.write(f"R² Score: {r2}")
+except Exception as e:
+    st.error(f"Error durante las predicciones o evaluación: {e}")
+    st.stop()
 
-# Predicciones futuras
-last_sequence = np.expand_dims(scaled_features[-n_steps_in:], axis=0)
-future_predictions = model.predict(last_sequence)
-future_predictions_denorm = denormalize(future_predictions[0], scaler, features.index('close'))
-
-st.write(f"### Predicciones futuras (en USD):")
-st.write(f"- **Próxima hora**: {future_predictions_denorm[0]:.2f} USD")
-st.write(f"- **Segunda hora**: {future_predictions_denorm[1]:.2f} USD")
-st.write(f"- **Tercera hora**: {future_predictions_denorm[2]:.2f} USD")
+# Gráficos
+try:
+    plt.figure(figsize=(12, 6))
+    plt.plot(real_close[:100], label='Real', color='blue')
+    plt.plot(predicted_close[:100], label='Predicción', color='orange')
+    plt.title('Predicción vs Valores Reales (Primeras 100 muestras)')
+    plt.xlabel('Índice')
+    plt.ylabel('Precio')
+    plt.legend()
+    st.pyplot(plt)
+except Exception as e:
+    st.error(f"Error al generar los gráficos: {e}")
