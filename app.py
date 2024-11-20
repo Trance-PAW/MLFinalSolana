@@ -32,7 +32,7 @@ st.title("Predicción de Precios de Solana con LSTM")
 st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
 
 def download_dataset():
-    file_id = "https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing"  # Reemplaza con el ID real del archivo
+    file_id = "https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing"  
     output_path = "solana_historical_data.csv"
     gdown.download(f"https://drive.google.com/uc?id={file_id}", output_path, quiet=False)
     return output_path
