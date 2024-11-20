@@ -1,11 +1,10 @@
 numpy
-streamlit
-pandas_ta
 pandas
-scikit-learn
-joblib
 matplotlib
 seaborn
+tensorflow
+scikit-learn
+streamlit
 altair==5.4.1
 attrs==24.2.0
 blinker==1.8.2
@@ -47,6 +46,5 @@ typing-extensions==4.12.2
 tzdata==2024.1
 urllib3==2.2.2
 watchdog==4.0.2
-scikit-learn
-tensorflow>=2.6.0
+
 
