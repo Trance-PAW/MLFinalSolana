@@ -31,16 +31,15 @@ else:
 st.title("Predicción de Precios de Solana con LSTM")
 st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
 
-# Ruta directa al archivo en el repositorio
+# Ruta directa al archivo
 data_path = "solana_historical_data.csv"
 
-# Leer el archivo
+# Leer el archivo CSV
 try:
     solana_data = pd.read_csv(data_path)
     st.write("Dataset cargado correctamente desde el repositorio.")
 except Exception as e:
-    st.error(f"Error al cargar el dataset: {e}")
-    
+    st.error(f"Error al cargar el dataset: {e}")    
     
     
 # Leer el archivo
