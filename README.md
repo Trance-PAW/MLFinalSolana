@@ -74,8 +74,6 @@ Estructura del Proyecto
 ```bash
 ├── app.py                    # Código de la aplicación Streamlit
 ├── solana_historical_data.csv # Conjunto de datos utilizado
-├── train_model.py             # Código para entrenar el modelo SVM
-├── best_pipeline_svm.sav      # Pipeline guardado del modelo SVM
 ├── README.md                  # Documentación del proyecto
 └── requirements.txt           # Dependencias del proyecto
 ```
