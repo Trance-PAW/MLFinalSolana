@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import Sequential, load_model
 import tensorflow as tf
 import streamlit as st
 
@@ -26,19 +27,32 @@ st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana ba
 
 # Cargar modelo entrenado
 try:
-    model = load_model("lstm_model_solana.h5", compile=False)
+    model = load_model("lstm_model_solana.h5")
     st.write("Modelo cargado exitosamente.")
 except Exception as e:
     st.error(f"Error al cargar el modelo: {e}")
     st.stop()
 
-# Normalizador
+# Normalizador (asegúrate de que este sea el mismo que usaste durante el entrenamiento)
 features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
 scaler = MinMaxScaler()
 
-# Configura los parámetros del escalador como se usaron en el entrenamiento.
-scaler.min_ = np.array([0, 0, 0, 0, 0])  # Valores mínimos ajustados
-scaler.scale_ = np.array([1, 1, 1, 1, 1])  # Escalas ajustadas
+# Ajustar el escalador con datos de ejemplo (deberías usar los datos reales del entrenamiento)
+dummy_data = np.array([
+    [10, 0, -1, -1, 0.5],  # Valores mínimos simulados
+    [250, 100, 1, 1, 10]   # Valores máximos simulados
+])
+scaler.fit(dummy_data)  # Ajustar el escalador con los rangos de valores originales
+
+# Función para denormalizar
+def denormalize(scaled_data, scaler, feature_index):
+    """
+    Denormalizar datos escalados utilizando un MinMaxScaler.
+    """
+    dummy = np.zeros((scaled_data.shape[0], len(scaler.scale_)))
+    dummy[:, feature_index] = scaled_data
+    denormalized_data = scaler.inverse_transform(dummy)
+    return denormalized_data[:, feature_index]
 
 # Entrada del usuario
 st.header("Entrada Manual de Indicadores")
@@ -64,11 +78,6 @@ if st.button("Predecir"):
         prediction = model.predict(sequence)
 
         # Denormalizar la predicción
-        def denormalize(scaled_data, scaler, feature_index):
-            dummy = np.zeros((scaled_data.shape[0], scaler.n_features_in_))
-            dummy[:, feature_index] = scaled_data
-            return scaler.inverse_transform(dummy)[:, feature_index]
-
         future_prices = denormalize(prediction[0], scaler, features.index('close'))
 
         # Mostrar los resultados
@@ -77,4 +86,5 @@ if st.button("Predecir"):
             st.write(f"Hora {i}: {price:.2f} USD")
     except Exception as e:
         st.error(f"Error durante la predicción: {e}")
+
 
