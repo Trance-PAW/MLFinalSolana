@@ -27,7 +27,7 @@ st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana ba
 
 # Cargar modelo entrenado
 try:
-    model = load_model("lstm_model.h5")
+    model = load_model("best_lstm_model.h5")
     st.write("Modelo cargado exitosamente.")
 except Exception as e:
     st.error(f"Error al cargar el modelo: {e}")
