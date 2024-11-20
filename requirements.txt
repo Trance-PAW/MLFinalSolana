@@ -1,4 +1,5 @@
 numpy
+google-drive-downloader==0.4
 pandas
 matplotlib
 seaborn
