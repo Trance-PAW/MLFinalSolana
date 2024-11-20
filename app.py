@@ -10,7 +10,7 @@ from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 import seaborn as sns
 import streamlit as st
-from google_drive_downloader import GoogleDriveDownloader as gdd
+import gdown
 
 # Configuración para TensorFlow
 tf.config.threading.set_intra_op_parallelism_threads(0)
@@ -31,13 +31,13 @@ else:
 st.title("Predicción de Precios de Solana con LSTM")
 st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos.")
 
+def download_dataset():
+    file_id = "TU_FILE_ID"  # Reemplaza con el ID real del archivo
+    output_path = "solana_historical_data.csv"
+    gdown.download(f"https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing}", output_path, quiet=False)
+    return output_path
 
-# ID del archivo de Google Drive
-file_id = "https://drive.google.com/file/d/1x8kLHMPbYKFskn4n9gTJE_Wp0Ei-87cE/view?usp=sharing"
-output_path = "solana_historical_data.csv"
 
-# Descarga el archivo
-gdown.download(f"https://drive.google.com/uc?id={file_id}", output_path, quiet=False)
 
 # Descargar y cargar el dataset
 try:
