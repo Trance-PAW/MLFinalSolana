@@ -40,6 +40,15 @@ try:
     st.write("Dataset cargado correctamente desde el repositorio.")
 except Exception as e:
     st.error(f"Error al cargar el dataset: {e}")
+    
+    
+    
+# Leer el archivo
+try:
+    solana_data = pd.read_csv(data_path)
+    st.write("Dataset cargado correctamente desde el repositorio.")
+except Exception as e:
+    st.error(f"Error al cargar el dataset: {e}")
 
 # Descargar y cargar el dataset
 try:
