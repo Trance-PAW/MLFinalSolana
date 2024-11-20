@@ -26,12 +26,17 @@ st.title("Predicción de Precios de Solana con LSTM")
 st.write("Este modelo utiliza un LSTM para predecir precios futuros de Solana basados en datos históricos o introducidos por el usuario.")
 
 # Cargar modelo entrenado
+# Registrar la función 'mse' explícitamente
+@tf.keras.utils.register_keras_serializable()
+def mse(y_true, y_pred):
+    return tf.reduce_mean(tf.square(y_true - y_pred))
+
+# Cargar modelo entrenado
 try:
-    model = load_model("lstm_model_solana.h5")
+    model = load_model("lstm_model_solana.h5", custom_objects={"mse": mse})
     st.write("Modelo cargado exitosamente.")
 except Exception as e:
     st.error(f"Error al cargar el modelo: {e}")
-    st.stop()
 
 # Normalizador (asegúrate de que este sea el mismo que usaste durante el entrenamiento)
 features = ['close', 'RSI', 'MACD', 'MACD_signal', 'ATR']
