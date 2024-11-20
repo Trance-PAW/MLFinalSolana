@@ -11,6 +11,7 @@ import tensorflow as tf
 import seaborn as sns
 import streamlit as st
 import gdown
+import os
 
 # Configuración para TensorFlow
 tf.config.threading.set_intra_op_parallelism_threads(0)
